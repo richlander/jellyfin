@@ -1,18 +1,9 @@
 ARG DOTNET_VERSION=6.0-bullseye-slim-amd64
 
-FROM node:lts-alpine as web-builder
-ARG JELLYFIN_WEB_VERSION=master
-RUN apk add curl git zlib zlib-dev autoconf g++ make libpng-dev gifsicle alpine-sdk automake libtool make gcc musl-dev nasm python3 \
- && curl -L https://github.com/jellyfin/jellyfin-web/archive/${JELLYFIN_WEB_VERSION}.tar.gz | tar zxf - \
- && cd jellyfin-web-* \
- && npm ci --no-audit --unsafe-perm \
- && mv dist /dist
-
-FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} as builder
-WORKDIR /repo
-COPY . .
+FROM mcr.microsoft.com/dotnet/nightly/sdk:${DOTNET_VERSION} as builder
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
-RUN /repo/PublishJellyfinServer.sh
+COPY PublishJellyfinServer.sh /
+RUN /PublishJellyfinServer.sh
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:${DOTNET_VERSION}
 
