@@ -59,6 +59,8 @@ namespace Jellyfin.Server
         /// <returns><see cref="Task" />.</returns>
         public static Task Main(string[] args)
         {
+            DisplayProcessDuration("RUNTIME");
+
             static Task ErrorParsingArguments(IEnumerable<Error> errors)
             {
                 Environment.ExitCode = 1;
@@ -185,6 +187,7 @@ namespace Jellyfin.Server
                 }
 
                 appHost.Init();
+                DisplayProcessDuration("APPHOST-INIT");
 
                 var webHost = new WebHostBuilder().ConfigureWebHostBuilder(appHost, serviceCollection, options, startupConfig, appPaths).Build();
 
@@ -203,11 +206,15 @@ namespace Jellyfin.Server
                     throw;
                 }
 
+                DisplayProcessDuration("WEBHOST-START-ASYNC");
+
                 await appHost.RunStartupTasksAsync(_tokenSource.Token).ConfigureAwait(false);
 
                 stopWatch.Stop();
 
                 _logger.LogInformation("Startup complete {Time:g}", stopWatch.Elapsed);
+                DisplayProcessDuration("APP");
+
                 Environment.Exit(0);
 
                 // Block main thread until shutdown
@@ -238,6 +245,27 @@ namespace Jellyfin.Server
             {
                 StartNewInstance(options);
             }
+        }
+
+        private static void DisplayProcessDuration(string phase)
+        {
+            int pid = Process.GetCurrentProcess().Id;
+            string procStatFileName = $"/proc/{pid}/stat";
+            string procStatFileContent = File.ReadAllText(procStatFileName);
+            _logger.LogInformation("Process statistics: {0}: {1}", procStatFileName, procStatFileContent);
+            string[] procStat = File.ReadAllText(procStatFileName).Split(' ');
+            const int CUTIME_INDEX = 13;
+            const int CSTIME_INDEX = 14;
+            long cutime_msecs = long.Parse(procStat[CUTIME_INDEX]) * 10;
+            long cstime_msecs = long.Parse(procStat[CSTIME_INDEX]) * 10;
+            Console.WriteLine();
+            Console.WriteLine("XMLXMLXML");
+            Console.WriteLine("<Timing Phase=\"{0}\">", phase);
+            Console.WriteLine("   <TotalTimeMsec>{0}</TotalTimeMsec>", cutime_msecs + cstime_msecs);
+            Console.WriteLine("   <UserTimeMsec>{0}</UserTimeMsec>", cutime_msecs);
+            Console.WriteLine("   <SystemTimeMsec>{0}</SystemTimeMsec>", cstime_msecs);
+            Console.WriteLine("</Timing>");
+            Console.WriteLine("LMXLMXLMX");
         }
 
         /// <summary>
